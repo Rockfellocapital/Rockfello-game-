@@ -63,11 +63,34 @@ npm run icons
 - Les **crédits** (◆) sont un **achat simulé** : aucun paiement réel. Ne pas le
   présenter comme un vrai paiement.
 
-## Prochaines vraies étapes
+## Feuille de route (upgrades futurs)
 
-1. **Sauvegarde serveur** — synchroniser la partie entre appareils (compte +
-   backend), au-delà du `localStorage` local actuel.
-2. **Données réelles** — brancher Airtable pour les contenus / la progression.
+État actuel = **v1** : jeu jouable, PWA installable, sauvegarde locale
+(`localStorage`). Volontairement 100 % front-end, sans backend. Les étapes
+ci-dessous sont l'évolution décidée, dans l'ordre — chacune est indépendante et
+peut être faite plus tard sans refonte.
+
+1. **Sauvegarde serveur (Supabase)** — table `saves` avec une ligne par joueur
+   (`user_id`, `data jsonb`, `updated_at`). On garde le `localStorage` comme
+   cache instantané et on synchronise vers Supabase en arrière-plan. Implique
+   une **notion de compte** (Supabase Auth). But : la partie suit le joueur
+   entre appareils et ne se perd plus.
+
+2. **ChatRock via Claude** — remplacer le stub `dealAdvice()` par de vrais
+   conseils générés par Claude (`claude-haiku-4-5` pour des conseils courts/peu
+   coûteux, `claude-opus-4-8` pour le meilleur raisonnement).
+   ⚠️ **Nécessite une fonction serverless** (Vercel Functions ou Supabase Edge
+   Functions) qui détient la clé API — **ne jamais appeler Claude depuis le
+   navigateur** (la clé serait exposée). C'est l'étape où le projet cesse d'être
+   purement statique. Idée : 1 conseil = 1 crédit ◆ = 1 appel (garde-fou de coût).
+
+3. **Contenus éditables (Airtable)** — villes, types de dossiers, textes
+   d'événements, lus **au build** ou via une fonction serverless mise en cache
+   (pas à chaque partie — quotas). L'état du joueur reste dans Supabase.
+
+4. **ChatRock + RAG (optionnel)** — seulement si on a une vraie base de
+   connaissances à indexer : embeddings **Voyage AI** → **Pinecone** → Claude.
+   À ne pas faire tant qu'il n'y a pas de doc à indexer.
 
 ## Structure
 

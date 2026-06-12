@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
+import { supabase, cloudEnabled } from "./supabaseClient.js";
+import { loadCloudSave, writeCloudSave } from "./cloudSave.js";
 
 // rockfello_game — OS téléphone (V.01 monochrome arrondi).
 // Démarrage à zéro · négociation au slider (le courtier décide) · boutique d'apps ·
@@ -135,6 +137,8 @@ export default function RockfelloGame(){
   const [chatLog,setChatLog]=useState(()=>boot?.chatLog??[]);
   const [misePct,setMisePct]=useState(30); const [balPct,setBalPct]=useState(0); const [finType,setFinType]=useState("Bridge");
   const [sellOpen,setSellOpen]=useState(false);
+  // Sauvegarde cloud (Supabase) — inactif si cloudEnabled est faux.
+  const [authUser,setAuthUser]=useState(null); const [authEmail,setAuthEmail]=useState(""); const [cloudMsg,setCloudMsg]=useState("");
 
   const closedRef=useRef(0); closedRef.current=closed;
   const notoRef=useRef(noto); notoRef.current=noto;
@@ -161,11 +165,72 @@ export default function RockfelloGame(){
     },5000);return ()=>clearInterval(iv);
   },[]);
 
-  // Sauvegarde auto : à chaque changement d'état de jeu, on persiste un instantané.
-  // (UID/POPN sont des compteurs globaux qui évoluent en même temps que ces états.)
+  // Construit l'instantané de la partie (même forme pour le local et le cloud).
+  const buildSnap=()=>({v:1,UID,POPN,capital,credits,noto,closed,projets,docs,ledger:ledger.slice(0,100),listings,unlocked,igLiked,chatLog});
+
+  // Réhydrate tous les états à partir d'un instantané (local ou cloud).
+  // Restaure les compteurs d'ID globaux AVANT (évite les collisions).
+  const applySnapshot=(s)=>{
+    if(!s) return;
+    UID=s.UID||UID; POPN=s.POPN||POPN;
+    setCapital(s.capital??140); setCredits(s.credits??3); setNoto(s.noto??5); setClosed(s.closed??0);
+    setProjets(s.projets??[]); setDocs(s.docs??[]); setLedger(s.ledger??[]);
+    setListings(s.listings??[genListing(notoRef.current)]); setUnlocked(s.unlocked??{});
+    setIgLiked(s.igLiked??false); setChatLog(s.chatLog??[]); setView({app:"home"});
+  };
+
+  // Sauvegarde auto LOCALE : à chaque changement d'état de jeu.
   useEffect(()=>{
-    writeSave({v:1,UID,POPN,capital,credits,noto,closed,projets,docs,ledger:ledger.slice(0,100),listings,unlocked,igLiked,chatLog});
+    writeSave(buildSnap());
   },[capital,credits,noto,closed,projets,docs,ledger,listings,unlocked,igLiked,chatLog]);
+
+  // --- Cloud (Supabase) ---
+  // 1) Suivre la session d'authentification.
+  useEffect(()=>{
+    if(!cloudEnabled||!supabase) return;
+    supabase.auth.getSession().then(({data})=>setAuthUser(data.session?.user??null));
+    const { data }=supabase.auth.onAuthStateChange((_e,session)=>setAuthUser(session?.user??null));
+    return ()=>data?.subscription?.unsubscribe();
+  },[]);
+
+  // 2) À la connexion : charger la partie cloud si elle existe, sinon y pousser
+  //    la partie locale courante. Une seule fois par utilisateur.
+  const syncedUser=useRef(null);
+  useEffect(()=>{
+    const uid=authUser?.id;
+    if(!uid||syncedUser.current===uid) return;
+    syncedUser.current=uid;
+    (async()=>{
+      const cloud=await loadCloudSave(uid);
+      if(cloud){ applySnapshot(cloud); setCloudMsg("Partie chargée depuis le cloud."); }
+      else { await writeCloudSave(uid,buildSnap()); setCloudMsg("Partie liée à ton compte."); }
+    })();
+  },[authUser]);// eslint-disable-line
+
+  // 3) Sauvegarde auto CLOUD (anti-rebond ~1,5 s) tant qu'un compte est connecté.
+  const cloudTimer=useRef(null);
+  useEffect(()=>{
+    if(!authUser) return;
+    clearTimeout(cloudTimer.current);
+    const snap=buildSnap();
+    cloudTimer.current=setTimeout(()=>writeCloudSave(authUser.id,snap),1500);
+    return ()=>clearTimeout(cloudTimer.current);
+  },[capital,credits,noto,closed,projets,docs,ledger,listings,unlocked,igLiked,chatLog,authUser]);// eslint-disable-line
+
+  const sendMagicLink=async()=>{
+    if(!supabase) return;
+    const email=authEmail.trim();
+    if(!email){ notify("Entre ton courriel.","warn"); return; }
+    const { error }=await supabase.auth.signInWithOtp({ email, options:{ emailRedirectTo:window.location.origin } });
+    if(error) notify("Erreur : "+error.message,"warn");
+    else notify("Lien magique envoyé — vérifie tes courriels.","win");
+  };
+  const signOut=async()=>{
+    if(!supabase) return;
+    await supabase.auth.signOut();
+    syncedUser.current=null; setCloudMsg("");
+    notify("Déconnecté (la partie reste en local).","info");
+  };
 
   const resetGame=()=>{
     clearSave();
@@ -337,6 +402,26 @@ export default function RockfelloGame(){
               <span style={{fontSize:12,fontWeight:600,color:lock?C.g400:C.ink}}>{app.lab}</span>
             </button>);})}
         </div>
+        {cloudEnabled&&(
+          <div style={{marginTop:24,background:C.paper,borderRadius:R.md,padding:14,boxShadow:SH.soft}}>
+            <div style={{fontFamily:MONO,fontSize:10,color:C.g400,marginBottom:8}}>☁ SAUVEGARDE CLOUD</div>
+            {authUser?(
+              <div>
+                <div style={{fontSize:13,fontWeight:600,wordBreak:"break-all"}}>Connecté · {authUser.email}</div>
+                {cloudMsg&&<div style={{fontSize:11,color:C.g400,marginTop:2}}>{cloudMsg}</div>}
+                <button onClick={signOut} style={{marginTop:10,border:`1px solid ${C.g300}`,background:"transparent",color:C.g400,borderRadius:R.pill,padding:"8px 16px",fontSize:12,fontWeight:600,cursor:"pointer"}}>Déconnexion</button>
+              </div>
+            ):(
+              <div>
+                <div style={{fontSize:12,color:C.g700,marginBottom:8}}>Connecte-toi pour retrouver ta partie sur tous tes appareils.</div>
+                <div style={{display:"flex",gap:8}}>
+                  <input value={authEmail} onChange={e=>setAuthEmail(e.target.value)} type="email" inputMode="email" placeholder="ton@courriel.com" style={{flex:1,border:`1px solid ${C.g200}`,borderRadius:R.pill,padding:"10px 14px",fontSize:14,outline:"none",background:C.paper}}/>
+                  <button onClick={sendMagicLink} style={{border:"none",borderRadius:R.pill,padding:"10px 16px",fontSize:13,fontWeight:700,cursor:"pointer",background:C.ink,color:C.paper,whiteSpace:"nowrap"}}>Lien magique</button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
         <div style={{marginTop:24,textAlign:"center"}}>
           <button onClick={()=>{if(window.confirm("Effacer la sauvegarde et recommencer une nouvelle partie ?"))resetGame();}} style={{border:`1px solid ${C.g300}`,background:"transparent",color:C.g400,borderRadius:R.pill,padding:"8px 18px",fontSize:12,fontWeight:600,cursor:"pointer"}}>Nouvelle partie</button>
         </div>

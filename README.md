@@ -51,12 +51,33 @@ npm run icons
 
 ## Sauvegarde
 
-- **Sauvegarde automatique** dans le navigateur (`localStorage`, clé
-  `rockfello_save_v1`) : la partie est restaurée au rechargement.
-- Bouton **« Nouvelle partie »** (écran d'accueil) pour effacer la sauvegarde et
-  repartir de zéro.
-- La sauvegarde est **locale à l'appareil/navigateur** : elle ne se synchronise
-  pas entre appareils (ça, c'est l'étape backend ci-dessous).
+- **Sauvegarde automatique locale** (`localStorage`, clé `rockfello_save_v1`) :
+  la partie est restaurée au rechargement. Toujours active, hors ligne incluse.
+- Bouton **« Nouvelle partie »** (écran d'accueil) pour effacer la sauvegarde.
+- **Sauvegarde cloud (optionnelle)** : si Supabase est configuré (voir ci-dessous),
+  un encart « ☁ Sauvegarde cloud » apparaît sur l'accueil. Connecté, la partie
+  se synchronise entre appareils. **Sans configuration, rien ne change** — le jeu
+  reste 100 % local.
+
+## Sauvegarde cloud (Supabase) — activation
+
+Tout le code est déjà en place. Pour l'allumer, 3 actions côté Supabase + Vercel :
+
+1. **Créer un projet** sur [supabase.com](https://supabase.com) (gratuit).
+2. **Créer la table** : Dashboard → _SQL Editor_ → coller le contenu de
+   [`supabase/schema.sql`](supabase/schema.sql) → _Run_. (Table `saves` + RLS :
+   chaque joueur ne voit que sa ligne.)
+3. **Auth e-mail** : _Authentication → Providers → Email_ est activé par défaut
+   (connexion par « lien magique », sans mot de passe). En test, pense à mettre
+   l'URL de ton site dans _Authentication → URL Configuration → Redirect URLs_.
+4. **Clés** : _Project Settings → API_ → copier `Project URL` et la clé `anon`.
+   - **En local** : `cp .env.example .env.local` puis remplir les deux valeurs.
+   - **Sur Vercel** : _Settings → Environment Variables_ → ajouter
+     `VITE_SUPABASE_URL` et `VITE_SUPABASE_ANON_KEY`, puis redéployer.
+
+> ⚠️ L'e-mail intégré de Supabase est **limité (~3–4 envois/heure)** — suffisant
+> pour toi, juste pour de gros tests il faudra brancher un SMTP. Variante sans
+> e-mail (connexion anonyme par appareil) possible si tu préfères — me le dire.
 
 ## À savoir
 
@@ -70,11 +91,10 @@ npm run icons
 ci-dessous sont l'évolution décidée, dans l'ordre — chacune est indépendante et
 peut être faite plus tard sans refonte.
 
-1. **Sauvegarde serveur (Supabase)** — table `saves` avec une ligne par joueur
-   (`user_id`, `data jsonb`, `updated_at`). On garde le `localStorage` comme
-   cache instantané et on synchronise vers Supabase en arrière-plan. Implique
-   une **notion de compte** (Supabase Auth). But : la partie suit le joueur
-   entre appareils et ne se perd plus.
+1. ✅ **Sauvegarde serveur (Supabase)** — _implémenté, à activer_ (voir
+   « Sauvegarde cloud » ci-dessus). `localStorage` comme cache instantané +
+   sync Supabase en arrière-plan, connexion par lien magique. La partie suit le
+   joueur entre appareils.
 
 2. **ChatRock via Claude** — remplacer le stub `dealAdvice()` par de vrais
    conseils générés par Claude (`claude-haiku-4-5` pour des conseils courts/peu
@@ -97,6 +117,10 @@ peut être faite plus tard sans refonte.
 | Fichier | Rôle |
 | --- | --- |
 | `src/RockfelloGame.jsx` | Le jeu complet (OS téléphone, apps, boucle de deals) |
+| `src/supabaseClient.js` | Client Supabase (inactif sans clés) |
+| `src/cloudSave.js` | Lecture/écriture de la sauvegarde cloud |
+| `supabase/schema.sql` | Table `saves` + sécurité (à exécuter dans Supabase) |
+| `.env.example` | Modèle des variables Supabase |
 | `src/main.jsx` | Point d'entrée React |
 | `src/styles.css` | Reset minimal (le jeu gère son style en inline) |
 | `vite.config.js` | Config Vite + manifeste PWA |

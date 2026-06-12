@@ -16,6 +16,24 @@ const pick=(a)=>a[Math.floor(Math.random()*a.length)];
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 let UID=1, POPN=101;
 
+// --- Sauvegarde locale (localStorage) ---
+const SAVE_KEY="rockfello_save_v1";
+function loadSave(){
+  try{
+    const raw=localStorage.getItem(SAVE_KEY);
+    if(!raw) return null;
+    const s=JSON.parse(raw);
+    if(!s||s.v!==1) return null;
+    return s;
+  }catch(_){return null;}
+}
+function writeSave(snap){
+  try{localStorage.setItem(SAVE_KEY,JSON.stringify(snap));}catch(_){}
+}
+function clearSave(){
+  try{localStorage.removeItem(SAVE_KEY);}catch(_){}
+}
+
 const CITY={ "Montréal":{x:50,y:50},"Longueuil":{x:55,y:54},"Sainte-Thérèse":{x:47,y:41},"Saint-Jérôme":{x:43,y:35},"Saint-Donat":{x:39,y:25},"Joliette":{x:55,y:37},"Trois-Rivières":{x:66,y:35},"Shawinigan":{x:64,y:27},"Québec":{x:81,y:27},"Val-des-Sources":{x:70,y:51},"Sherbrooke":{x:73,y:60},"Drummondville":{x:64,y:47},"Campbell's Bay":{x:17,y:33},"Gatineau":{x:21,y:42} };
 const VILLES=Object.keys(CITY);
 const BIENS=["8-plex","triplex délabré","RPA 22 unités","duplex + commercial","12 portes","terrain zoné mixte"];
@@ -96,22 +114,25 @@ function Photo({p,h=120,round=R.sm}){
 }
 
 export default function RockfelloGame(){
+  // Charge la sauvegarde une seule fois et restaure les compteurs d'ID globaux
+  // AVANT d'initialiser les états (sinon les nouveaux ID entreraient en collision).
+  const [boot]=useState(()=>{const s=loadSave();if(s){UID=s.UID||UID;POPN=s.POPN||POPN;}return s;});
   const [view,setView]=useState({app:"home"});
-  const [capital,setCapital]=useState(140);
-  const [credits,setCredits]=useState(3);
-  const [noto,setNoto]=useState(5);
-  const [closed,setClosed]=useState(0);
-  const [projets,setProjets]=useState([]);
-  const [docs,setDocs]=useState([]);
-  const [ledger,setLedger]=useState([]);
-  const [listings,setListings]=useState(()=>[genListing(5)]);
-  const [unlocked,setUnlocked]=useState({});
+  const [capital,setCapital]=useState(()=>boot?.capital??140);
+  const [credits,setCredits]=useState(()=>boot?.credits??3);
+  const [noto,setNoto]=useState(()=>boot?.noto??5);
+  const [closed,setClosed]=useState(()=>boot?.closed??0);
+  const [projets,setProjets]=useState(()=>boot?.projets??[]);
+  const [docs,setDocs]=useState(()=>boot?.docs??[]);
+  const [ledger,setLedger]=useState(()=>boot?.ledger??[]);
+  const [listings,setListings]=useState(()=>boot?.listings??[genListing(5)]);
+  const [unlocked,setUnlocked]=useState(()=>boot?.unlocked??{});
   const [notifs,setNotifs]=useState([]);
-  const [igLiked,setIgLiked]=useState(false);
+  const [igLiked,setIgLiked]=useState(()=>boot?.igLiked??false);
   const [draft,setDraft]=useState(""); const [corrected,setCorrected]=useState(null);
   const [selCity,setSelCity]=useState(null);
   const [offerPrice,setOfferPrice]=useState(0); const [nego,setNego]=useState(null); const [chatHint,setChatHint]=useState(null);
-  const [chatLog,setChatLog]=useState([]);
+  const [chatLog,setChatLog]=useState(()=>boot?.chatLog??[]);
   const [misePct,setMisePct]=useState(30); const [balPct,setBalPct]=useState(0); const [finType,setFinType]=useState("Bridge");
   const [sellOpen,setSellOpen]=useState(false);
 
@@ -139,6 +160,22 @@ export default function RockfelloGame(){
       if(worst){setProjets(prev=>prev.map(q=>q.id===worst.id?{...q,nags:(q.nags||0)+1,risque:Math.min(60,q.risque+3),pendingSince:Date.now()}:q));notify(`Relance · ${worst.nom} attend ta réponse`,"warn");}
     },5000);return ()=>clearInterval(iv);
   },[]);
+
+  // Sauvegarde auto : à chaque changement d'état de jeu, on persiste un instantané.
+  // (UID/POPN sont des compteurs globaux qui évoluent en même temps que ces états.)
+  useEffect(()=>{
+    writeSave({v:1,UID,POPN,capital,credits,noto,closed,projets,docs,ledger:ledger.slice(0,100),listings,unlocked,igLiked,chatLog});
+  },[capital,credits,noto,closed,projets,docs,ledger,listings,unlocked,igLiked,chatLog]);
+
+  const resetGame=()=>{
+    clearSave();
+    UID=1;POPN=101;
+    setCapital(140);setCredits(3);setNoto(5);setClosed(0);
+    setProjets([]);setDocs([]);setLedger([]);setListings([genListing(5)]);
+    setUnlocked({});setIgLiked(false);setChatLog([]);setNego(null);setSelCity(null);
+    setView({app:"home"});
+    notify("Nouvelle partie — sauvegarde effacée","info");
+  };
 
   const refill=(arr)=>{const target=Math.min(1+closedRef.current,4);const a=[...arr];while(a.length<target)a.push(genListing(notoRef.current));return a;};
 
@@ -289,7 +326,7 @@ export default function RockfelloGame(){
     return (<Shell title="rockfello_game">
       <div style={{padding:"6px 8px"}}>
         <div style={{fontSize:28,fontWeight:900,letterSpacing:-1.2,margin:"6px 0 2px"}}>{projets.length===0?"Bâtis ton empire.":"Ton empire."}</div>
-        <div style={{fontSize:14,color:C.g400,marginBottom:20}}>{active.length} actifs · {closed} closés · débloque des apps avec tes gains</div>
+        <div style={{fontSize:14,color:C.g400,marginBottom:20}}>{active.length} actifs · {closed} closés · partie sauvegardée auto</div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:18}}>
           {tiles.map(app=>{const lock=!isUnlocked(app.a);return (
             <button key={app.a} onClick={()=>lock?go("store"):go(app.a)} style={{border:"none",background:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:8}}>
@@ -299,6 +336,9 @@ export default function RockfelloGame(){
               </div>
               <span style={{fontSize:12,fontWeight:600,color:lock?C.g400:C.ink}}>{app.lab}</span>
             </button>);})}
+        </div>
+        <div style={{marginTop:24,textAlign:"center"}}>
+          <button onClick={()=>{if(window.confirm("Effacer la sauvegarde et recommencer une nouvelle partie ?"))resetGame();}} style={{border:`1px solid ${C.g300}`,background:"transparent",color:C.g400,borderRadius:R.pill,padding:"8px 18px",fontSize:12,fontWeight:600,cursor:"pointer"}}>Nouvelle partie</button>
         </div>
       </div>
     </Shell>);

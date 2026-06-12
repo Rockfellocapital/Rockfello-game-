@@ -49,16 +49,24 @@ npm i -D sharp
 npm run icons
 ```
 
-## À savoir (test de boucle)
+## Sauvegarde
 
-- **Pas de sauvegarde** : chaque rechargement repart à zéro — voulu pour tester
-  la boucle de jeu.
+- **Sauvegarde automatique** dans le navigateur (`localStorage`, clé
+  `rockfello_save_v1`) : la partie est restaurée au rechargement.
+- Bouton **« Nouvelle partie »** (écran d'accueil) pour effacer la sauvegarde et
+  repartir de zéro.
+- La sauvegarde est **locale à l'appareil/navigateur** : elle ne se synchronise
+  pas entre appareils (ça, c'est l'étape backend ci-dessous).
+
+## À savoir
+
 - Les **crédits** (◆) sont un **achat simulé** : aucun paiement réel. Ne pas le
   présenter comme un vrai paiement.
 
 ## Prochaines vraies étapes
 
-1. **Persistance** — sauvegarder la partie (localStorage, puis backend).
+1. **Sauvegarde serveur** — synchroniser la partie entre appareils (compte +
+   backend), au-delà du `localStorage` local actuel.
 2. **Données réelles** — brancher Airtable pour les contenus / la progression.
 
 ## Structure

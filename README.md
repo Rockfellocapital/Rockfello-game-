@@ -67,17 +67,20 @@ Tout le code est déjà en place. Pour l'allumer, 3 actions côté Supabase + Ve
 2. **Créer la table** : Dashboard → _SQL Editor_ → coller le contenu de
    [`supabase/schema.sql`](supabase/schema.sql) → _Run_. (Table `saves` + RLS :
    chaque joueur ne voit que sa ligne.)
-3. **Auth e-mail** : _Authentication → Providers → Email_ est activé par défaut
-   (connexion par « lien magique », sans mot de passe). En test, pense à mettre
-   l'URL de ton site dans _Authentication → URL Configuration → Redirect URLs_.
+3. **Auth e-mail + mot de passe** : _Authentication → Providers → Email_ est
+   activé par défaut. Le joueur **crée un compte** (e-mail + mot de passe) puis
+   **se connecte** depuis l'encart « ☁ Sauvegarde cloud » de l'accueil.
+   - **Pour des tests sans friction** : _Authentication → Providers → Email_ →
+     désactiver **« Confirm email »**. Le compte est actif immédiatement, sans
+     courriel de confirmation. (Si activé, le joueur doit cliquer un lien reçu
+     par courriel avant de pouvoir se connecter.)
 4. **Clés** : _Project Settings → API_ → copier `Project URL` et la clé `anon`.
    - **En local** : `cp .env.example .env.local` puis remplir les deux valeurs.
    - **Sur Vercel** : _Settings → Environment Variables_ → ajouter
      `VITE_SUPABASE_URL` et `VITE_SUPABASE_ANON_KEY`, puis redéployer.
 
-> ⚠️ L'e-mail intégré de Supabase est **limité (~3–4 envois/heure)** — suffisant
-> pour toi, juste pour de gros tests il faudra brancher un SMTP. Variante sans
-> e-mail (connexion anonyme par appareil) possible si tu préfères — me le dire.
+> Reset de mot de passe oublié : possible plus tard (Supabase envoie un lien de
+> réinitialisation par courriel) — pas encore branché dans l'UI du jeu.
 
 ## À savoir
 
@@ -93,7 +96,7 @@ peut être faite plus tard sans refonte.
 
 1. ✅ **Sauvegarde serveur (Supabase)** — _implémenté, à activer_ (voir
    « Sauvegarde cloud » ci-dessus). `localStorage` comme cache instantané +
-   sync Supabase en arrière-plan, connexion par lien magique. La partie suit le
+   sync Supabase en arrière-plan, compte e-mail + mot de passe. La partie suit le
    joueur entre appareils.
 
 2. **ChatRock via Claude** — remplacer le stub `dealAdvice()` par de vrais

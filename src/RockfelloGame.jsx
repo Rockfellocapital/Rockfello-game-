@@ -138,7 +138,7 @@ export default function RockfelloGame(){
   const [misePct,setMisePct]=useState(30); const [balPct,setBalPct]=useState(0); const [finType,setFinType]=useState("Bridge");
   const [sellOpen,setSellOpen]=useState(false);
   // Sauvegarde cloud (Supabase) — inactif si cloudEnabled est faux.
-  const [authUser,setAuthUser]=useState(null); const [authEmail,setAuthEmail]=useState(""); const [cloudMsg,setCloudMsg]=useState("");
+  const [authUser,setAuthUser]=useState(null); const [authEmail,setAuthEmail]=useState(""); const [authPass,setAuthPass]=useState(""); const [cloudMsg,setCloudMsg]=useState("");
 
   const closedRef=useRef(0); closedRef.current=closed;
   const notoRef=useRef(noto); notoRef.current=noto;
@@ -217,13 +217,24 @@ export default function RockfelloGame(){
     return ()=>clearTimeout(cloudTimer.current);
   },[capital,credits,noto,closed,projets,docs,ledger,listings,unlocked,igLiked,chatLog,authUser]);// eslint-disable-line
 
-  const sendMagicLink=async()=>{
+  const signIn=async()=>{
+    if(!supabase) return;
+    const email=authEmail.trim();
+    if(!email||!authPass){ notify("Courriel et mot de passe requis.","warn"); return; }
+    const { error }=await supabase.auth.signInWithPassword({ email, password:authPass });
+    if(error) notify("Erreur : "+error.message,"warn");
+    else setAuthPass("");
+  };
+  const signUp=async()=>{
     if(!supabase) return;
     const email=authEmail.trim();
     if(!email){ notify("Entre ton courriel.","warn"); return; }
-    const { error }=await supabase.auth.signInWithOtp({ email, options:{ emailRedirectTo:window.location.origin } });
-    if(error) notify("Erreur : "+error.message,"warn");
-    else notify("Lien magique envoyé — vérifie tes courriels.","win");
+    if(authPass.length<6){ notify("Mot de passe : 6 caractères minimum.","warn"); return; }
+    const { data, error }=await supabase.auth.signUp({ email, password:authPass });
+    if(error){ notify("Erreur : "+error.message,"warn"); return; }
+    setAuthPass("");
+    if(data.session) notify("Compte créé · connecté !","win");
+    else notify("Compte créé — confirme via le courriel reçu, puis connecte-toi.","info");
   };
   const signOut=async()=>{
     if(!supabase) return;
@@ -413,10 +424,12 @@ export default function RockfelloGame(){
               </div>
             ):(
               <div>
-                <div style={{fontSize:12,color:C.g700,marginBottom:8}}>Connecte-toi pour retrouver ta partie sur tous tes appareils.</div>
+                <div style={{fontSize:12,color:C.g700,marginBottom:8}}>Crée un compte ou connecte-toi pour sauvegarder ta partie sur tous tes appareils.</div>
+                <input value={authEmail} onChange={e=>setAuthEmail(e.target.value)} type="email" inputMode="email" autoComplete="email" placeholder="ton@courriel.com" style={{width:"100%",border:`1px solid ${C.g200}`,borderRadius:R.pill,padding:"10px 14px",fontSize:14,outline:"none",background:C.paper,marginBottom:8}}/>
+                <input value={authPass} onChange={e=>setAuthPass(e.target.value)} type="password" autoComplete="current-password" placeholder="mot de passe" onKeyDown={e=>e.key==="Enter"&&signIn()} style={{width:"100%",border:`1px solid ${C.g200}`,borderRadius:R.pill,padding:"10px 14px",fontSize:14,outline:"none",background:C.paper,marginBottom:8}}/>
                 <div style={{display:"flex",gap:8}}>
-                  <input value={authEmail} onChange={e=>setAuthEmail(e.target.value)} type="email" inputMode="email" placeholder="ton@courriel.com" style={{flex:1,border:`1px solid ${C.g200}`,borderRadius:R.pill,padding:"10px 14px",fontSize:14,outline:"none",background:C.paper}}/>
-                  <button onClick={sendMagicLink} style={{border:"none",borderRadius:R.pill,padding:"10px 16px",fontSize:13,fontWeight:700,cursor:"pointer",background:C.ink,color:C.paper,whiteSpace:"nowrap"}}>Lien magique</button>
+                  <button onClick={signIn} style={{flex:1,border:"none",borderRadius:R.pill,padding:"10px 12px",fontSize:13,fontWeight:700,cursor:"pointer",background:C.ink,color:C.paper}}>Se connecter</button>
+                  <button onClick={signUp} style={{flex:1,border:`1px solid ${C.ink}`,borderRadius:R.pill,padding:"10px 12px",fontSize:13,fontWeight:700,cursor:"pointer",background:C.paper,color:C.ink}}>Créer un compte</button>
                 </div>
               </div>
             )}

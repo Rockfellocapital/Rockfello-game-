@@ -10,11 +10,11 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["favicon.svg", "apple-touch-icon.png"],
       manifest: {
-        name: "Rockfello — Bâtis ton empire",
-        short_name: "Rockfello",
+        name: "Québectrust — le jeu de l'immobilier québécois",
+        short_name: "Québectrust",
         lang: "fr-CA",
         description:
-          "Jeu de tycoon immobilier : déniche des dossiers en difficulté, négocie, flippe, bâtis ton empire.",
+          "Le jeu de l'immobilier québécois : déniche des dossiers en difficulté, négocie, flippe, bâtis ton empire.",
         theme_color: "#000000",
         background_color: "#d9d9d9",
         display: "standalone",

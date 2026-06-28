@@ -399,7 +399,7 @@ export default function RockfelloGame(){
       {a:"carte",lab:"Carte",g:"◎",b:active.length},{a:"quickrock",lab:"QuickRock",g:"$",b:0},
       {a:"chatrock",lab:"ChatRock",g:"◆",b:0},{a:"instarock",lab:"InstaRock",g:"❒",b:0},
     ];
-    return (<Shell title="rockfello_game">
+    return (<Shell title="québectrust">
       <div style={{padding:"6px 8px"}}>
         <div style={{fontSize:28,fontWeight:900,letterSpacing:-1.2,margin:"6px 0 2px"}}>{projets.length===0?"Bâtis ton empire.":"Ton empire."}</div>
         <div style={{fontSize:14,color:C.g400,marginBottom:20}}>{active.length} actifs · {closed} closés · partie sauvegardée auto</div>
@@ -687,7 +687,7 @@ export default function RockfelloGame(){
     </Shell>);
   }
 
-  return <Shell title="rockfello_game"><Empty t="—" /></Shell>;
+  return <Shell title="québectrust"><Empty t="—" /></Shell>;
 }
 
 function Slider({min,max,value,onChange,grad,fill}){
